@@ -5,7 +5,9 @@ import re
 
 class Field:
     def __init__(self, value):
-        self.value = value
+        if not self.is_valid(value):
+            raise ValueError
+        self.__value = value
 
     def __str__(self):
         return str(self.__value)
@@ -16,7 +18,12 @@ class Field:
 
     @value.setter
     def value(self, new_value):
+        if not self.is_valid(new_value):
+            raise ValueError
         self.__value = new_value
+
+    def is_valid(self, value):
+        return True
 
 
 class Name(Field):
@@ -24,42 +31,30 @@ class Name(Field):
 
 
 class Phone(Field):
-    # def __init__(self, value):
-    #     if len(value) != 10 or re.search(r"\D", value):
-    #         raise ValueError("Incorrect phone number format")
-    #     super().__init__(value)
-    @Field.value.setter
-    def value(self, new_value):
-        if len(new_value) != 10 or re.search(r"\D", new_value):
+    def is_valid(self, value):
+        if len(value) != 10 or re.search(r"\D", value):
             raise ValueError("Incorrect phone number format")
-        Field.value.fset(self, new_value)
+        return True
 
 
 class Birthday(Field):
-    @Field.value.setter
-    def value(self, new_value):
+    def is_valid(self, value):
         try:
-            birthday = datetime.strptime(new_value, "%d.%m.%Y")
+            birthday = datetime.strptime(value, "%d.%m.%Y")
         except ValueError:
             raise ValueError(
                 "Incorrect birthday data format. Please use dd.mm.yyyy pattern"
             )
         if birthday > datetime.today():
-            raise ValueError(f"Birthday date '{new_value}' is in the future")
-        Field.value.fset(self, birthday)
-
-    def __str__(self):
-        return str(self.value.strftime("%d.%m.%Y"))
+            raise ValueError(f"Birthday date '{value}' is in the future")
+        return True
 
 
 class Record:
     def __init__(self, name, birthday=None):
         self.name = Name(name)
         self.phones = []
-        if birthday is not None:
-            self.birthday = Birthday(birthday)
-        else:
-            self.birthday = None
+        self.birthday = Birthday(birthday) if birthday else None
 
     def add_phone(self, phone):
         self.phones.append(Phone(phone))
@@ -93,15 +88,17 @@ class Record:
         if self.birthday is None:
             return None
 
+        birthday = datetime.strptime(self.birthday.value, "%d.%m.%Y")
+
         today = datetime.today()
         # truncating hours, minutes etc.
         today = today.replace(hour=0, minute=0, second=0, microsecond=0)
 
         current_year = int(today.strftime("%Y"))
-        this_year_bday = self.birthday.value.replace(year=current_year)
+        this_year_bday = birthday.replace(year=current_year)
 
         if this_year_bday < today:
-            this_year_bday = self.birthday.value.replace(year=current_year + 1)
+            this_year_bday = birthday.replace(year=current_year + 1)
 
         delta = this_year_bday - today
         return delta.days
